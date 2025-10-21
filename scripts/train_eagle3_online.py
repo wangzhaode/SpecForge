@@ -349,7 +349,7 @@ def main():
     train_dataloader = prepare_dp_dataloaders(
         train_eagle3_dataset,
         args.draft_micro_batch_size,
-        num_workers=4,
+        num_workers=64,
         shuffle=True,
         process_group=get_dp_group(),
         is_vlm=args.is_vlm,
