@@ -37,6 +37,7 @@ def parse_args():
         choices=[
             "ultrachat",
             "sharegpt",
+            "smoltalk",
             "perfectblend",
             "magpie-qwen2.5-pro-1m-v0.1",
             "sharegpt4v",
@@ -120,6 +121,26 @@ def process_sharegpt_row(row: Dict) -> Tuple[Dict, int]:
     row = {"id": row["id"], "conversations": formatted_conversations}
     return row, skipped_count
 
+def process_smoltalk_row(row):
+    """Process a row from the ultrachat dataset.
+
+    The function expects a row with the following schema:
+    "conversations": [
+        {
+            "role": "user" | "assistant",
+            "content": str
+        }
+    ]
+    """
+    conversations = row["conversations"]
+    formatted_conversations = []
+    for message in conversations:
+        role = message["role"]
+        content = message["content"]
+        assert role in ["user", "assistant"]
+        formatted_conversations.append({"role": role, "content": content})
+    row = {"id": row["id"], "conversations": formatted_conversations}
+    return row, 0
 
 def process_sharegpt4v_row(row) -> Dict:
     """
@@ -180,7 +201,7 @@ def process_and_save_ds(train_ds, test_ds, output_path, proc_fn, dataset_name):
             if row is None:
                 continue
             total_skipped_count += skipped_count
-            f.write(json.dumps(row) + "\n")
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     if test_ds is not None:
         test_output_jsonl_path = output_path.joinpath(f"{dataset_name}_test.jsonl")
@@ -190,7 +211,7 @@ def process_and_save_ds(train_ds, test_ds, output_path, proc_fn, dataset_name):
                 if row is None:
                     continue
                 total_skipped_count += skipped_count
-                f.write(json.dumps(row) + "\n")
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     if total_skipped_count > 0:
         total_messages = len(train_ds) + (len(test_ds) if test_ds is not None else 0)
@@ -232,6 +253,11 @@ def main():
             print("Loading dataset from custom data path: ", args.data_path)
             ds = load_dataset_from_path(Path(args.data_path))
         proc_fn = process_sharegpt_row
+    elif args.dataset == "smoltalk":
+        # ds = load_dataset("opencsg/smoltalk-chinese")
+        ds = load_dataset("parquet", data_files="../smoltalk-chinese/data/*.parquet")["train"]
+        ds = ds.map(add_index, with_indices=True)
+        proc_fn = process_smoltalk_row
     elif args.dataset == "perfectblend":
         ds = load_dataset("mlabonne/open-perfectblend")["train"]
         ds = ds.map(add_index, with_indices=True)

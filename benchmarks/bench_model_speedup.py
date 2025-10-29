@@ -24,8 +24,8 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 python3 bench_model_speedup.py \
     --tp-size 4 \
     --attention-backend fa3 \
     --config-list "${config_list[@]}" \
-    --benchmark-list mtbench:80 gsm8k:200 humaneval:200 math500:200 \
-    --output lmsys_gpt-oss-120b_Eagle3_result.jsonl
+    --benchmark-list mtbench:80 gsm8k:200 humaneval:200 math500:200 ceval:200 cmmlu:200 \
+    --output lmsys_gpt-oss-120b_Eagle3_result_with_chinese.jsonl
 """
 import argparse
 import asyncio
@@ -64,7 +64,8 @@ def parse_args():
         "--benchmark-list",
         type=str,
         nargs="+",
-        default=["mtbench:80", "gsm8k:200", "humaneval:200", "math500:200"],
+        # 新增 ceval 和 cmmlu 到默认列表
+        default=["mtbench:80", "gsm8k:200", "humaneval:200", "math500:200", "ceval:200", "cmmlu:200"],
     )
     parser.add_argument(
         "--split-category",
@@ -156,6 +157,38 @@ def get_math500_conversations(num_prompts: int):
         )
     return bench_conversations
 
+
+def get_ceval_conversations(num_prompts: int):
+    bench_name = "ceval"
+    file_path = "ceval.jsonl"
+    if not os.path.exists(file_path):
+        return {}
+
+    questions = list(read_jsonl(file_path))[:num_prompts]
+    bench_conversations = {bench_name: []}
+    for q in questions:
+        # 将 instruction 字段作为 user 的 content
+        prompt = q['instruction']
+        bench_conversations[bench_name].append(
+            [{"role": "user", "content": prompt}]
+        )
+    return bench_conversations
+
+
+def get_cmmlu_conversations(num_prompts: int):
+    bench_name = "cmmlu"
+    file_path = "cmmlu.jsonl"
+    if not os.path.exists(file_path):
+        return {}
+
+    questions = list(read_jsonl(file_path))[:num_prompts]
+    bench_conversations = {bench_name: []}
+    for q in questions:
+        prompt = q['instruction']
+        bench_conversations[bench_name].append(
+            [{"role": "user", "content": prompt}]
+        )
+    return bench_conversations
 
 def launch_sglang_server(
     server_args: ServerArgs,
@@ -355,6 +388,10 @@ def main():
             bench_conversations.update(get_humaneval_conversations(num_prompts))
         elif bench_name == "math500":
             bench_conversations.update(get_math500_conversations(num_prompts))
+        elif bench_name == "ceval":
+            bench_conversations.update(get_ceval_conversations(num_prompts))
+        elif bench_name == "cmmlu":
+            bench_conversations.update(get_cmmlu_conversations(num_prompts))
         else:
             print(f"{bench_name} is not supported yet, skip ... ")
             continue

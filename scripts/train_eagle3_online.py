@@ -274,15 +274,26 @@ def main():
                 .cuda()
             )
         else:
-            target_model = (
-                AutoModelForCausalLM.from_pretrained(
-                    pretrained_model_name_or_path=args.target_model_path,
-                    torch_dtype=torch.bfloat16,
-                    cache_dir=args.cache_dir,
+            if draft_model_config.target_model_type == "qwen3_vl":
+                from transformers import Qwen3VLForConditionalGeneration
+                target_model = (
+                    Qwen3VLForConditionalGeneration.from_pretrained(
+                        pretrained_model_name_or_path=args.target_model_path,
+                        torch_dtype=torch.bfloat16,
+                    )
+                    .eval()
+                    .cuda()
                 )
-                .eval()
-                .cuda()
-            )
+            else:
+                target_model = (
+                    AutoModelForCausalLM.from_pretrained(
+                        pretrained_model_name_or_path=args.target_model_path,
+                        torch_dtype=torch.bfloat16,
+                        cache_dir=args.cache_dir,
+                    )
+                    .eval()
+                    .cuda()
+                )
 
     for p in target_model.parameters():
         p.requires_grad = False
